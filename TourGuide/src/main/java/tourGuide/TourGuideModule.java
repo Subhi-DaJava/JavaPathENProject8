@@ -7,6 +7,8 @@ import gpsUtil.GpsUtil;
 import rewardCentral.RewardCentral;
 import tourGuide.service.RewardsService;
 
+import java.util.Locale;
+
 @Configuration
 public class TourGuideModule {
 	
@@ -23,6 +25,12 @@ public class TourGuideModule {
 	@Bean
 	public RewardCentral getRewardCentral() {
 		return new RewardCentral();
+	}
+
+	@Bean
+	public Locale getLocale() {
+		Locale.setDefault(Locale.US);
+		return Locale.getDefault();
 	}
 	
 }

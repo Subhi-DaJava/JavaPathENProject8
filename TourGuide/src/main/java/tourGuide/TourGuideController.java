@@ -1,11 +1,12 @@
 package tourGuide;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.jsoniter.output.JsonStream;
 
@@ -16,10 +17,14 @@ import tripPricer.Provider;
 
 @RestController
 public class TourGuideController {
+    private static final Logger logger = LoggerFactory.getLogger(TourGuideService.class);
 
-	@Autowired
 	TourGuideService tourGuideService;
-	
+    @Autowired
+    public TourGuideController(TourGuideService tourGuideService) {
+        this.tourGuideService = tourGuideService;
+    }
+
     @RequestMapping("/")
     public String index() {
         return "Greetings from TourGuide!";
@@ -28,6 +33,7 @@ public class TourGuideController {
     @RequestMapping("/getLocation") 
     public String getLocation(@RequestParam String userName) {
     	VisitedLocation visitedLocation = tourGuideService.getUserLocation(getUser(userName));
+        logger.info("Get successfully the location of an user, username: {}, from TourGuideController", userName);
 		return JsonStream.serialize(visitedLocation.location);
     }
     
@@ -52,8 +58,8 @@ public class TourGuideController {
     }
     
     @RequestMapping("/getAllCurrentLocations")
-    public String getAllCurrentLocations() {
-    	// TODO: Get a list of every user's most recent location as JSON
+    public String getAllCurrentLocations() throws ExecutionException, InterruptedException { //
+    	// Get a list of every user's most recent location as JSON
     	//- Note: does not use gpsUtil to query for their current location, 
     	//        but rather gathers the user's current location from their stored location history.
     	//
@@ -62,8 +68,8 @@ public class TourGuideController {
     	//        "019b04a9-067a-4c76-8817-ee75088c3822": {"longitude":-48.188821,"latitude":74.84371} 
     	//        ...
     	//     }
-    	
-    	return JsonStream.serialize("");
+
+    	return  JsonStream.serialize(tourGuideService.getAllCurrentLocations().get());
     }
     
     @RequestMapping("/getTripDeals")
@@ -71,10 +77,27 @@ public class TourGuideController {
     	List<Provider> providers = tourGuideService.getTripDeals(getUser(userName));
     	return JsonStream.serialize(providers);
     }
-    
-    private User getUser(String userName) {
-    	return tourGuideService.getUser(userName);
+    @RequestMapping("/users/user")
+    private User getUser(@RequestParam String userName) {
+        User userByUserName =  tourGuideService.getUser(userName);
+        logger.info("User is successfully retrieved by username: {}, from TourGuideController", userName);
+        return userByUserName;
     }
    
-
+    @RequestMapping("/users")
+    public List<User> getAllUsers() {
+        List<User> users = tourGuideService.getAllUsers();
+        logger.info("All users ({} total) successfully loaded, from TourGuideController", users.size());
+        return users;
+    }
+    @PostMapping("/users")
+    public void addUser(@RequestBody User user) {
+        tourGuideService.addUser(user);
+        logger.info("New User successfully added, username:{}, from TourGuideController", user.getUserName());
+    }
+    @GetMapping("/users/user/{userId}")
+    public User getUserByUserId(@PathVariable String userId) {
+        logger.info("User is successfully retrieved by UserId:{} form TourGuideController", userId);
+        return tourGuideService.getUserByUserId(userId);
+    }
 }
