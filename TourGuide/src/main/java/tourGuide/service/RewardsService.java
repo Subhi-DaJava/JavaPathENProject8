@@ -46,30 +46,27 @@ public class RewardsService {
     }
 
     public void calculateRewards(User user) {
-        List<VisitedLocation> userLocations = user.getVisitedLocations();
-
+        List<VisitedLocation> userLocations = new CopyOnWriteArrayList<>(user.getVisitedLocations());
         List<Attraction> attractions = gpsUtil.getAttractions();
-
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         for (Attraction attraction : attractions) {
             if (hasRewardForAttraction(user, attraction)) {
-                break;
+                continue;
             }
-            for (VisitedLocation visitedLocation : userLocations) {
-                if (nearAttraction(visitedLocation, attraction)) {
-                    CompletableFuture<Void> futureUserReward = CompletableFuture.runAsync(() -> {
-                        UserReward userReward = new UserReward(visitedLocation, attraction, getRewardPoints(attraction, user));
-                        user.addUserReward(userReward);
-                    }, calculateExecutorService);
-                    futures.add(futureUserReward);
-                    break;
-                }
-            }
+            userLocations.stream()
+                    .filter(visitedLocation -> nearAttraction(visitedLocation, attraction))
+                    .forEach(visitedLocation -> {
+                        CompletableFuture<Void> futureUserReward = CompletableFuture.runAsync(() -> {
+                            UserReward userReward = new UserReward(visitedLocation, attraction, getRewardPoints(attraction, user));
+                            user.addUserReward(userReward);
+                        }, calculateExecutorService);
+                        futures.add(futureUserReward);
+                    });
         }
-
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
+
 
     private boolean hasRewardForAttraction(User user, Attraction attraction) {
         for (UserReward userReward : user.getUserRewards()) {
