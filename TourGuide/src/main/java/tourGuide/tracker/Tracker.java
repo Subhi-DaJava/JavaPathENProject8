@@ -35,17 +35,20 @@ public class Tracker extends Thread {
 	
 	@Override
 	public void run() {
+
 		StopWatch stopWatch = new StopWatch();
 		while(true) {
 			if(Thread.currentThread().isInterrupted() || stop) {
 				logger.debug("Tracker stopping");
 				break;
 			}
-			
+
 			List<User> users = tourGuideService.getAllUsers();
 			logger.debug("Begin Tracker. Tracking " + users.size() + " users.");
 			stopWatch.start();
-			users.forEach(u -> tourGuideService.trackUserLocation(u));
+
+			users.forEach(tourGuideService::trackUserLocation);//user-> tourGuideService.trackUserLocation(user)
+
 			stopWatch.stop();
 			logger.debug("Tracker Time Elapsed: " + TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()) + " seconds."); 
 			stopWatch.reset();

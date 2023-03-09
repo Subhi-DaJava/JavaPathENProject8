@@ -9,9 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -32,6 +30,8 @@ import tourGuide.user.UserReward;
 import tripPricer.Provider;
 import tripPricer.TripPricer;
 
+
+
 import static java.util.stream.Collectors.toMap;
 
 
@@ -43,6 +43,9 @@ public class TourGuideService {
     private final TripPricer tripPricer = new TripPricer();
     public final Tracker tracker;
     boolean testMode = true;
+    ExecutorService trackUserExecutorService = Executors.newFixedThreadPool(50);
+
+
 
     public TourGuideService(GpsUtil gpsUtil, RewardsService rewardsService) {
         this.gpsUtil = gpsUtil;
@@ -62,21 +65,17 @@ public class TourGuideService {
         return user.getUserRewards();
     }
 
-    public VisitedLocation getUserLocation(User user) {
+    public VisitedLocation getUserLocation(User user) throws ExecutionException, InterruptedException {
         logger.debug("getLocation methode starts here, from TourGuideService");
         VisitedLocation visitedLocation =
-                (user.getVisitedLocations().size() > 0) ? user.getLastVisitedLocation() : trackUserLocation(user);
+                (user.getVisitedLocations().size() > 0) ? user.getLastVisitedLocation() : trackUserLocation(user).join();
         logger.info("Retrieve successfully user lastVisitedLocation if exists, if not track user current location");
-        if(visitedLocation == null) {
-            logger.debug("This user with username:{} doesn't exist in the DB!, from TourGuideService", user.getUserName());
-            throw new UserNotFoundException("This user with username:" + user.getUserName() + " doesn't exist in the DB");
-        }
         return visitedLocation;
     }
 
     public User getUser(String userName) {
         User user = internalUserMap.get(userName);
-        if(user == null) {
+        if (user == null) {
             logger.debug("This user doesn't exist in the DB with this username:{}, getUser method", userName);
             throw new UserNotFoundException("This user doesn't exist in the DB with this username: " + userName);
         }
@@ -86,6 +85,7 @@ public class TourGuideService {
 
     /**
      * Retrieve all Users
+     *
      * @return A User List
      */
     public List<User> getAllUsers() {
@@ -97,6 +97,7 @@ public class TourGuideService {
 
     /**
      * Create a New User if Username doesn't exist in the DB!
+     *
      * @param user User
      */
     public void addUser(User user) {
@@ -111,13 +112,14 @@ public class TourGuideService {
 
     /**
      * Retrieve a User by UserId
-      * @param userId String
+     *
+     * @param userId String
      * @return A User
      */
     public User getUserByUserId(String userId) {
         for (Map.Entry<String, User> entry : internalUserMap.entrySet()) {
             User user = entry.getValue();
-            if(user.getUserId().toString().equals(userId)) {
+            if (user.getUserId().toString().equals(userId)) {
                 return user;
             }
         }
@@ -126,33 +128,36 @@ public class TourGuideService {
 
     /**
      * Return the Map : Key is userId, value is Location
+     *
      * @return CompletableFuture
      */
-    public CompletableFuture<Map<String, Location>> getAllCurrentLocations() {
-        ExecutorService executorService = Executors.newFixedThreadPool(100);
-        CompletableFuture<Map<String, Location>> completableFuture = CompletableFuture.supplyAsync(()-> {
-            return getAllUsers();
-        }, executorService).thenApplyAsync(users -> {
-            return users.stream().collect(toMap(user -> user.getUserId().toString(),
-                    user-> new Location(user.getLastVisitedLocation().location.longitude, user.getLastVisitedLocation().location.latitude)));
-        }, executorService);
-
-       return completableFuture;
+    public Map<String, Location> getAllCurrentLocations() {
+        logger.debug("AllCurrentLocations starts here, from TourGuideService");
+        return getAllUsers().stream().collect(toMap(user -> user.getUserId().toString(),
+                user -> new Location(user.getLastVisitedLocation().location.longitude, user.getLastVisitedLocation().location.latitude)));
     }
 
     public List<Provider> getTripDeals(User user) {
-        int cumulatativeRewardPoints = user.getUserRewards().stream().mapToInt(i -> i.getRewardPoints()).sum();
+        int cumulativeRewardPoints = user.getUserRewards().stream().mapToInt(UserReward::getRewardPoints).sum();//i -> i.getRewardPoints()
         List<Provider> providers = tripPricer.getPrice(tripPricerApiKey, user.getUserId(), user.getUserPreferences().getNumberOfAdults(),
-                user.getUserPreferences().getNumberOfChildren(), user.getUserPreferences().getTripDuration(), cumulatativeRewardPoints);
+                user.getUserPreferences().getNumberOfChildren(), user.getUserPreferences().getTripDuration(), cumulativeRewardPoints);
         user.setTripDeals(providers);
         return providers;
     }
 
-    public VisitedLocation trackUserLocation(User user) {
-        VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId());
-        user.addToVisitedLocations(visitedLocation);
-        rewardsService.calculateRewards(user);
-        return visitedLocation;
+    public CompletableFuture<VisitedLocation> trackUserLocation(User user) {
+        //logger.debug("trackUserLocation from TourGuideService, user:{}, currentThread: {}", user.getUserName(), Thread.currentThread().getName());
+        return CompletableFuture.supplyAsync(() -> gpsUtil.getUserLocation(user.getUserId()),trackUserExecutorService)
+                .thenApplyAsync(visitedLocation -> {
+                    //logger.debug("addToVisitedLocation, user: {}, currentThread: {}", user.getUserName(), Thread.currentThread().getName());
+                    user.addToVisitedLocations(visitedLocation);
+                    return visitedLocation;
+                }, trackUserExecutorService)
+                .thenApplyAsync(visitedLocation -> {
+                    //logger.debug("calculateRewards, user: {}, currentThread: {}", user.getUserName(), Thread.currentThread().getName());
+                    rewardsService.calculateRewards(user);
+                    return visitedLocation;
+                }, trackUserExecutorService);
     }
 
     public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
@@ -206,7 +211,7 @@ public class TourGuideService {
     private double generateRandomLongitude() {
         double leftLimit = -180;
         double rightLimit = 180;
-        // Retourne un nombre aléatoire à virgule flottante supérieur ou égal à 0,0 et inférieur à 1,0.
+        // Random().nextDouble() retourne un nombre aléatoire à virgule flottante supérieur ou égal à 0,0 et inférieur à 1,0.
         return leftLimit + new Random().nextDouble() * (rightLimit - leftLimit);
     }
 

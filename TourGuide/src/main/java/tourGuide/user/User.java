@@ -2,7 +2,6 @@ package tourGuide.user;
 
 import java.util.*;
 
-import gpsUtil.location.Location;
 import gpsUtil.location.VisitedLocation;
 import tripPricer.Provider;
 
@@ -69,8 +68,15 @@ public class User {
     }
 
     public void addUserReward(UserReward userReward) {
+        /* if (userRewards.stream().noneMatch(r -> !r.attraction.attractionName.equals(userReward.attraction.attractionName))) {
+            userRewards.add(userReward);
+        }*/
 
-        if (userRewards.stream().filter(r -> !r.attraction.attractionName.equals(userReward.attraction.attractionName)).count() == 0) {
+        /* if (userRewards.stream().allMatch(r -> r.attraction.attractionName.equals(userReward.attraction.attractionName))) {
+            userRewards.add(userReward);
+        }*/
+
+         if(userRewards.stream().filter(r -> !r.attraction.attractionName.equals(userReward.attraction.attractionName)).count() == 0) {
             userRewards.add(userReward);
         }
     }
@@ -88,15 +94,14 @@ public class User {
     }
 
     public VisitedLocation getLastVisitedLocation() {
-        try {
+        /*try {
             VisitedLocation lastVisitedLocation = Collections.max(visitedLocations, Comparator.comparing(lastLocation -> lastLocation.timeVisited));
             return lastVisitedLocation;
         } catch (Exception e) {
             //e.printStackTrace();
             return new VisitedLocation(userId, new Location(0, 0), new Date());
-        }
-
-        //return visitedLocations.get(visitedLocations.size() - 1);
+        }*/
+        return visitedLocations.get(visitedLocations.size() - 1);
     }
 
     public void setTripDeals(List<Provider> tripDeals) {

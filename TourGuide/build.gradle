@@ -44,13 +44,11 @@ dependencies {
     implementation 'org.javamoney:moneta:1.4.2'
     implementation group: 'com.jsoniter', name: 'jsoniter', version: '0.9.23'
 
-
     implementation files('libs/gpsUtil.jar')
     implementation files('libs/RewardCentral.jar')
     implementation files('libs/TripPricer.jar')
 
     /*implementation fileTree(include: ['*.jar'], dir: 'libs')*/
-
 
 }
 
@@ -91,4 +89,15 @@ test {
 }
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
+}
+application {
+    // Define the main class for the application.
+    mainClass = 'tourGuide.Application'
+}
+jar {
+    manifest {
+        // This code adds the Main-Class attribute to the manifest property of the jar task.
+        // add the required attribute when generating an archive(contain the Main-Class attribute in the MANIFEST.MF)for the application
+        attributes("Main-Class": "tourGuide.Application")
+    }
 }

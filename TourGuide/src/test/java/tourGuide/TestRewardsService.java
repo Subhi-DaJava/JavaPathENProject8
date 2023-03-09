@@ -16,6 +16,7 @@ import tourGuide.user.UserReward;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TestRewardsService {
 
 	@Test
-	public void userGetRewards() {
+	public void userGetRewards() throws ExecutionException, InterruptedException {
 		GpsUtil gpsUtil = new GpsUtil();
 		RewardsService rewardsService = new RewardsService(gpsUtil, new RewardCentral());
 
@@ -34,7 +35,7 @@ public class TestRewardsService {
 		User user = new User(UUID.randomUUID(), "jon", "000", "jon@tourGuide.com");
 		Attraction attraction = gpsUtil.getAttractions().get(0);
 		user.addToVisitedLocations(new VisitedLocation(user.getUserId(), attraction, new Date()));
-		tourGuideService.trackUserLocation(user);
+		tourGuideService.trackUserLocation(user).get();
 		List<UserReward> userRewards = user.getUserRewards();
 		tourGuideService.tracker.stopTracking();
 		assertEquals(1, userRewards.size());

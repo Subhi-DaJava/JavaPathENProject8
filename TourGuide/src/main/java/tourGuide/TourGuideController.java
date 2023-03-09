@@ -1,8 +1,10 @@
 package tourGuide;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import gpsUtil.location.Location;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +33,7 @@ public class TourGuideController {
     }
     
     @RequestMapping("/getLocation") 
-    public String getLocation(@RequestParam String userName) {
+    public String getLocation(@RequestParam String userName) throws ExecutionException, InterruptedException {
     	VisitedLocation visitedLocation = tourGuideService.getUserLocation(getUser(userName));
         logger.info("Get successfully the location of an user, username: {}, from TourGuideController", userName);
 		return JsonStream.serialize(visitedLocation.location);
@@ -47,7 +49,7 @@ public class TourGuideController {
         // The reward points for visiting each Attraction.
         //    Note: Attraction reward points can be gathered from RewardsCentral
     @RequestMapping("/getNearbyAttractions") 
-    public String getNearbyAttractions(@RequestParam String userName) {
+    public String getNearbyAttractions(@RequestParam String userName) throws ExecutionException, InterruptedException {
     	VisitedLocation visitedLocation = tourGuideService.getUserLocation(getUser(userName));
     	return JsonStream.serialize(tourGuideService.getNearByAttractions(visitedLocation));
     }
@@ -59,6 +61,7 @@ public class TourGuideController {
     
     @RequestMapping("/getAllCurrentLocations")
     public String getAllCurrentLocations() throws ExecutionException, InterruptedException { //
+       logger.debug("getAllCurrentLocations method starts here, form TourGuideController");
     	// Get a list of every user's most recent location as JSON
     	//- Note: does not use gpsUtil to query for their current location, 
     	//        but rather gathers the user's current location from their stored location history.
@@ -68,8 +71,9 @@ public class TourGuideController {
     	//        "019b04a9-067a-4c76-8817-ee75088c3822": {"longitude":-48.188821,"latitude":74.84371} 
     	//        ...
     	//     }
-
-    	return  JsonStream.serialize(tourGuideService.getAllCurrentLocations().get());
+        Map<String, Location> allCurrentLocations = tourGuideService.getAllCurrentLocations();
+        logger.info("AllCurrentLocations({} total) have been retrieved successfully, from TourGuideController", allCurrentLocations.size());
+    	return  JsonStream.serialize(allCurrentLocations);
     }
     
     @RequestMapping("/getTripDeals")
