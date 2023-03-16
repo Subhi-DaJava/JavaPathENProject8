@@ -106,7 +106,21 @@ public class TourGuideService {
         }
     }
 
-
+    /**
+     * Retrieve a User by UserId
+     *
+     * @param userId String
+     * @return A User
+     */
+    public User getUserByUserId(String userId) {
+        for (Map.Entry<String, User> entry : internalUserMap.entrySet()) {
+            User user = entry.getValue();
+            if (user.getUserId().toString().equals(userId)) {
+                return user;
+            }
+        }
+        throw new UserNotFoundException("This User doesn't exist with this userId: " + userId);
+    }
 
     /**
      * Return the Map : Key is userId, value is Location

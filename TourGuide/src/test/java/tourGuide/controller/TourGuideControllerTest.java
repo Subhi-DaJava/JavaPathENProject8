@@ -3,6 +3,7 @@ package tourGuide.controller;
 import gpsUtil.location.Location;
 import gpsUtil.location.VisitedLocation;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -11,12 +12,15 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import rewardCentral.RewardCentral;
 import tourGuide.TourGuideController;
 import tourGuide.dto.NearAttractionDTO;
 import tourGuide.helper.InternalTestHelper;
+import tourGuide.service.RewardsService;
 import tourGuide.service.TourGuideService;
 import tourGuide.user.User;
 import tourGuide.user.UserReward;
+import tripPricer.Provider;
 
 import java.util.*;
 
@@ -36,7 +40,6 @@ class TourGuideControllerTest {
     private WebApplicationContext context;
     @MockBean
     private TourGuideService tourGuideService;
-
 
     @BeforeEach
     public void init() {
@@ -71,6 +74,7 @@ class TourGuideControllerTest {
                 .andExpect(jsonPath("$.size()", is(2)))
                 .andExpect(jsonPath("$.latitude", is(20.5)));
 
+
     }
 
     @Test
@@ -93,7 +97,7 @@ class TourGuideControllerTest {
         when(tourGuideService.getNearByAttractions(visitedLocation)).thenReturn(nearAttractionDTOS);
 
         mockMvc.perform(get("/getNearbyAttractions")
-                .param("userName", user.getUserName()))
+                        .param("userName", user.getUserName()))
                 .andExpect(status().isOk());
     }
 
@@ -108,7 +112,7 @@ class TourGuideControllerTest {
         when(tourGuideService.getUserRewards(user)).thenReturn(userRewards);
 
         mockMvc.perform(get("/getRewards")
-                .param("userName", user.getUserName()))
+                        .param("userName", user.getUserName()))
                 .andExpect(status().isOk());
     }
 
@@ -134,4 +138,46 @@ class TourGuideControllerTest {
                 .andExpect(jsonPath("$." + user.getUserId().toString() + ".latitude", is(20.5)));
 
     }
+
+    @Disabled
+    @Test
+    void getTripDeals() throws Exception {
+        InternalTestHelper.setInternalUserNumber(0);
+        UUID userID = UUID.randomUUID();
+        UUID tripId = UUID.randomUUID();
+        User user = new User(userID, "USER", "000", "userEmail");
+        Location location = new Location(20.5, 30.54);
+        VisitedLocation visitedLocation = new VisitedLocation(userID, location, new Date());
+
+        user.addToVisitedLocations(visitedLocation);
+
+        Provider provider = new Provider(tripId, "provider", 50.0);
+        List<Provider> providers = new ArrayList<>(List.of(provider));
+        when(tourGuideService.getUser(user.getUserName())).thenReturn(user);
+        when(tourGuideService.getTripDeals(user)).thenReturn(providers);
+
+        mockMvc.perform(get("/getTripDeals")
+                        .param("userName", user.getUserName()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getUser() throws Exception {
+        InternalTestHelper.setInternalUserNumber(0);
+        UUID userID = UUID.randomUUID();
+        User user = new User(userID, "USER", "000", "userEmail");
+        Location location = new Location(20.5, 30.54);
+        VisitedLocation visitedLocation = new VisitedLocation(userID, location, new Date());
+
+        user.addToVisitedLocations(visitedLocation);
+
+        when(tourGuideService.getUser(user.getUserName())).thenReturn(user);
+
+        mockMvc.perform(get("/users/user")
+                        .param("userName", user.getUserName()))
+                .andExpect(status().isOk());
+
+    }
+
+
 }
