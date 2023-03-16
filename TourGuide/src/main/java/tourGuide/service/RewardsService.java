@@ -2,10 +2,7 @@ package tourGuide.service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +27,7 @@ public class RewardsService {
     private int attractionProximityRange = 200;
     private final GpsUtil gpsUtil;
     private final RewardCentral rewardsCentral;
-    ExecutorService calculateExecutorService = Executors.newFixedThreadPool(120);
+    private final ExecutorService calculateExecutorService = Executors.newFixedThreadPool(100);
 
     public RewardsService(GpsUtil gpsUtil, RewardCentral rewardCentral) {
         this.gpsUtil = gpsUtil;
@@ -45,6 +42,7 @@ public class RewardsService {
         proximityBuffer = defaultProximityBuffer;
     }
 
+
     public void calculateRewards(User user) {
         List<VisitedLocation> userLocations = user.getVisitedLocations();
 
@@ -53,8 +51,8 @@ public class RewardsService {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         for (Attraction attraction : attractions) {
-            if (hasRewardForAttraction(user, attraction)) {
-                break;
+            if (user.getUserRewards().stream().anyMatch(r -> r.attraction.attractionName.equals(attraction.attractionName))) {
+                continue;
             }
             for (VisitedLocation visitedLocation : userLocations) {
                 if (nearAttraction(visitedLocation, attraction)) {
@@ -67,25 +65,16 @@ public class RewardsService {
                 }
             }
         }
-
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
-    private boolean hasRewardForAttraction(User user, Attraction attraction) {
-        for (UserReward userReward : user.getUserRewards()) {
-            if (userReward.attraction.attractionName.equals(attraction.attractionName)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     public boolean isWithinAttractionProximity(Attraction attraction, Location location) {
-        return getDistance(attraction, location) > attractionProximityRange ? false : true;
+        return !(getDistance(attraction, location) > attractionProximityRange);
     }
 
     private boolean nearAttraction(VisitedLocation visitedLocation, Attraction attraction) {
-        return getDistance(attraction, visitedLocation.location) > proximityBuffer ? false : true;
+        return !(getDistance(attraction, visitedLocation.location) > proximityBuffer);
     }
 
     private int getRewardPoints(Attraction attraction, User user) {

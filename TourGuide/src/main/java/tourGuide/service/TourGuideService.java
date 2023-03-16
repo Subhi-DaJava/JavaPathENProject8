@@ -2,13 +2,7 @@ package tourGuide.service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -18,12 +12,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import gpsUtil.GpsUtil;
-import gpsUtil.location.Attraction;
 import gpsUtil.location.Location;
 import gpsUtil.location.VisitedLocation;
+import rewardCentral.RewardCentral;
+import tourGuide.dto.NearAttractionDTO;
 import tourGuide.exception.UserAlreadyExistException;
 import tourGuide.exception.UserNotFoundException;
 import tourGuide.helper.InternalTestHelper;
+import tourGuide.helper.AttractionLocalDistance;
 import tourGuide.tracker.Tracker;
 import tourGuide.user.User;
 import tourGuide.user.UserReward;
@@ -37,13 +33,13 @@ import static java.util.stream.Collectors.toMap;
 
 @Service
 public class TourGuideService {
-    private Logger logger = LoggerFactory.getLogger(TourGuideService.class);
+    private final Logger logger = LoggerFactory.getLogger(TourGuideService.class);
     private final GpsUtil gpsUtil;
     private final RewardsService rewardsService;
     private final TripPricer tripPricer = new TripPricer();
     public final Tracker tracker;
     boolean testMode = true;
-    ExecutorService trackUserExecutorService = Executors.newFixedThreadPool(50);
+    private final ExecutorService trackUserExecutorService = Executors.newFixedThreadPool(100);
 
 
 
@@ -68,7 +64,7 @@ public class TourGuideService {
     public VisitedLocation getUserLocation(User user) throws ExecutionException, InterruptedException {
         logger.debug("getLocation methode starts here, from TourGuideService");
         VisitedLocation visitedLocation =
-                (user.getVisitedLocations().size() > 0) ? user.getLastVisitedLocation() : trackUserLocation(user).join();
+                (user.getVisitedLocations().size() > 0) ? user.getLastVisitedLocation() : trackUserLocation(user).get();
         logger.info("Retrieve successfully user lastVisitedLocation if exists, if not track user current location");
         return visitedLocation;
     }
@@ -89,8 +85,8 @@ public class TourGuideService {
      * @return A User List
      */
     public List<User> getAllUsers() {
-        //return new ArrayList<>(internalUserMap.values());
-        List<User> users = internalUserMap.values().stream().collect(Collectors.toList());
+        //List<User> users = internalUserMap.values().stream().collect(Collectors.toList());
+        List<User> users = new ArrayList<>(internalUserMap.values());
         logger.info("{} Users are successfully retrieved , from TourGuideService", users.size());
         return users;
     }
@@ -110,21 +106,7 @@ public class TourGuideService {
         }
     }
 
-    /**
-     * Retrieve a User by UserId
-     *
-     * @param userId String
-     * @return A User
-     */
-    public User getUserByUserId(String userId) {
-        for (Map.Entry<String, User> entry : internalUserMap.entrySet()) {
-            User user = entry.getValue();
-            if (user.getUserId().toString().equals(userId)) {
-                return user;
-            }
-        }
-        throw new UserNotFoundException("This User doesn't exist with this userId: " + userId);
-    }
+
 
     /**
      * Return the Map : Key is userId, value is Location
@@ -147,40 +129,36 @@ public class TourGuideService {
 
     public CompletableFuture<VisitedLocation> trackUserLocation(User user) {
         //logger.debug("trackUserLocation from TourGuideService, user:{}, currentThread: {}", user.getUserName(), Thread.currentThread().getName());
-        return CompletableFuture.supplyAsync(() -> gpsUtil.getUserLocation(user.getUserId()),trackUserExecutorService)
+        return CompletableFuture.supplyAsync(() -> {
+                   // logger.debug(Thread.currentThread().getName() + " is working");
+           return gpsUtil.getUserLocation(user.getUserId());
+                        }, trackUserExecutorService)
                 .thenApplyAsync(visitedLocation -> {
                     //logger.debug("addToVisitedLocation, user: {}, currentThread: {}", user.getUserName(), Thread.currentThread().getName());
                     user.addToVisitedLocations(visitedLocation);
-                    return visitedLocation;
-                }, trackUserExecutorService)
-                .thenApplyAsync(visitedLocation -> {
-                    //logger.debug("calculateRewards, user: {}, currentThread: {}", user.getUserName(), Thread.currentThread().getName());
-                    rewardsService.calculateRewards(user);
+                        rewardsService.calculateRewards(user);
                     return visitedLocation;
                 }, trackUserExecutorService);
     }
 
-    public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
-        List<Attraction> nearbyAttractions = new ArrayList<>();
-        for (Attraction attraction : gpsUtil.getAttractions()) {
-            if (rewardsService.isWithinAttractionProximity(attraction, visitedLocation.location)) {
-                nearbyAttractions.add(attraction);
-            }
-        }
-
-        return nearbyAttractions;
+    public List<NearAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation) {
+        int attractionsNearest = 5;
+        return gpsUtil.getAttractions()
+                .stream()
+                .map(attraction -> new AttractionLocalDistance(attraction, visitedLocation, rewardsService))
+                .sorted(Comparator.comparing(AttractionLocalDistance::getDistance))
+                .limit(attractionsNearest)
+                .map(attraction -> new NearAttractionDTO(attraction, visitedLocation, attraction, new RewardCentral()))
+                .collect(Collectors.toList());
     }
 
+
     private void addShutDownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                tracker.stopTracking();
-            }
-        });
+        Runtime.getRuntime().addShutdownHook(new Thread(tracker::stopTracking));
     }
 
     /**********************************************************************************
-     *
+     * <p>
      * Methods Below: For Internal Testing
      *
      **********************************************************************************/
@@ -203,9 +181,7 @@ public class TourGuideService {
     }
 
     private void generateUserLocationHistory(User user) {
-        IntStream.range(0, 3).forEach(i -> {
-            user.addToVisitedLocations(new VisitedLocation(user.getUserId(), new Location(generateRandomLatitude(), generateRandomLongitude()), getRandomTime()));
-        });
+        IntStream.range(0, 3).forEach(i -> user.addToVisitedLocations(new VisitedLocation(user.getUserId(), new Location(generateRandomLatitude(), generateRandomLongitude()), getRandomTime())));
     }
 
     private double generateRandomLongitude() {

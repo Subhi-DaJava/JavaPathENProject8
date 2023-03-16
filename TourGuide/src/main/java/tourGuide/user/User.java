@@ -1,6 +1,7 @@
 package tourGuide.user;
 
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import gpsUtil.location.VisitedLocation;
 import tripPricer.Provider;
@@ -68,17 +69,16 @@ public class User {
     }
 
     public void addUserReward(UserReward userReward) {
-        /* if (userRewards.stream().noneMatch(r -> !r.attraction.attractionName.equals(userReward.attraction.attractionName))) {
+    /*     if(userRewards.stream().filter(r -> !r.attraction.attractionName.equals(userReward.attraction.attractionName)).count() == 0) {
             userRewards.add(userReward);
         }*/
 
-        /* if (userRewards.stream().allMatch(r -> r.attraction.attractionName.equals(userReward.attraction.attractionName))) {
-            userRewards.add(userReward);
-        }*/
+        List<UserReward> userRewardList = new CopyOnWriteArrayList<>(userRewards);
 
-         if(userRewards.stream().filter(r -> !r.attraction.attractionName.equals(userReward.attraction.attractionName)).count() == 0) {
+        if (userRewardList.stream().noneMatch(r -> r.attraction.attractionName.equals(userReward.attraction.attractionName))) {
             userRewards.add(userReward);
         }
+
     }
 
     public List<UserReward> getUserRewards() {

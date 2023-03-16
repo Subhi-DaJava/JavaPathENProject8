@@ -13,7 +13,7 @@ import tourGuide.service.TourGuideService;
 import tourGuide.user.User;
 
 public class Tracker extends Thread {
-	private Logger logger = LoggerFactory.getLogger(Tracker.class);
+	private final Logger logger = LoggerFactory.getLogger(Tracker.class);
 	private static final long trackingPollingInterval = TimeUnit.MINUTES.toSeconds(5);
 	private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 	private final TourGuideService tourGuideService;
@@ -47,6 +47,7 @@ public class Tracker extends Thread {
 			logger.debug("Begin Tracker. Tracking " + users.size() + " users.");
 			stopWatch.start();
 
+			//users.parallelStream().forEach(tourGuideService::trackUserLocation);//user-> tourGuideService.trackUserLocation(user)
 			users.forEach(tourGuideService::trackUserLocation);//user-> tourGuideService.trackUserLocation(user)
 
 			stopWatch.stop();

@@ -29,7 +29,7 @@ public class TourGuideModule {
 
 	@Bean
 	public Locale getLocale() {
-		Locale.setDefault(Locale.US);
+		Locale.setDefault(new Locale("en", "US"));
 		return Locale.getDefault();
 	}
 	
