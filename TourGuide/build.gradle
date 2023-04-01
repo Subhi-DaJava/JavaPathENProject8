@@ -18,11 +18,6 @@ apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
 apply plugin: 'java-library'
 
-
-/*tasks.named('bootJar') {
-    archiveBaseName = 'tourGuide'
-    version =  '1.0.0'
-}*/
 version = '1.0.0'
 group = 'tourGuide'
 mainClassName='tourGuide.Application'
@@ -55,13 +50,19 @@ dependencies {
 
 }
 
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport // report is always generated after tests run
+}
 
 jacoco {
     toolVersion = "0.8.8"
     reportsDirectory = layout.buildDirectory.dir('customJacocoReportDir')
 }
 
+
 jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
     reports {
         xml.required = false
         csv.required = false
@@ -69,34 +70,18 @@ jacocoTestReport {
     }
 }
 
-test.finalizedBy jacocoTestReport
-check.dependsOn jacocoTestCoverageVerification
-
 jacocoTestCoverageVerification {
-  violationRules {
-    rule {
-      limit {
-        counter = 'LINE'
-        value = 'COVEREDRATIO'
-        minimum = 0.4
-      }
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.5
+            }
+        }
     }
-  }
 }
 
-tasks.named('test') {
-    useJUnitPlatform()
-}
-test {
-    finalizedBy jacocoTestReport // report is always generated after tests run
-}
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
-application {
-    // Define the main class for the application.
-    mainClass = 'tourGuide.Application'
-}
 jar {
     manifest {
         // This code adds the Main-Class attribute to the manifest property of the jar task.
