@@ -75,5 +75,12 @@ public class UserPreferences {
 	public void setNumberOfChildren(int numberOfChildren) {
 		this.numberOfChildren = numberOfChildren;
 	}
+	public CurrencyUnit getCurrency() {
+		return currency;
+	}
+
+	public void setCurrency(CurrencyUnit currency) {
+		this.currency = currency;
+	}
 
 }

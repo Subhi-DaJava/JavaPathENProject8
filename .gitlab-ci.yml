@@ -56,6 +56,3 @@ test-coverage:
     expire_in: 2 weeks
   only:
     - develop
-
-
-

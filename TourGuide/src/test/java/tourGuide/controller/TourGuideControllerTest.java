@@ -93,7 +93,7 @@ class TourGuideControllerTest {
         when(tourGuideService.getNearByAttractions(visitedLocation)).thenReturn(nearAttractionDTOS);
 
         mockMvc.perform(get("/getNearbyAttractions")
-                .param("userName", user.getUserName()))
+                        .param("userName", user.getUserName()))
                 .andExpect(status().isOk());
     }
 
@@ -108,7 +108,7 @@ class TourGuideControllerTest {
         when(tourGuideService.getUserRewards(user)).thenReturn(userRewards);
 
         mockMvc.perform(get("/getRewards")
-                .param("userName", user.getUserName()))
+                        .param("userName", user.getUserName()))
                 .andExpect(status().isOk());
     }
 
